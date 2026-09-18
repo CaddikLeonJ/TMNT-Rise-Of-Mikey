@@ -28,12 +28,12 @@ const c=document.getElementById('game'),x=c.getContext('2d'); x.imageSmoothingEn
 const keys={left:false,right:false,jump:false,attack:false,special:false};
 let p,enemies,pizza,fx,round,score,gameOver,win,spawnTimer;
 function reset(){
- p={x:80,y:205,w:22,h:30,vx:0,vy:0,hp:100,max:100,xp:0,level:1,face:1,attack:0,special:0,on:false};
+ p={x:80,y:181,w:34,h:54,vx:0,vy:0,hp:100,max:100,xp:0,level:1,face:1,attack:0,special:0,on:false,walk:0};
  enemies=[];pizza=[];fx=[];round=1;score=0;gameOver=false;win=false;spawnTimer=0;spawnWave();
 }
 function spawnWave(){
  let n=round+1;
- for(let i=0;i<n;i++) enemies.push({x:270+i*55,y:210,w:20,h:28,hp:25+round*8,max:25+round*8,hit:0,cd:Math.random()*60});
+ for(let i=0;i<n;i++) enemies.push({x:270+i*55,y:187,w:30,h:48,hp:25+round*8,max:25+round*8,hit:0,cd:Math.random()*60,walk:Math.random()*20});
 }
 function bind(k,v){keys[k]=v}
 document.querySelectorAll('button').forEach(b=>{
@@ -80,10 +80,10 @@ function special(){
 function update(){
  if(gameOver||win)return;
  p.vx=(keys.right?2.3:0)-(keys.left?2.3:0);
- if(p.vx){p.face=p.vx>0?1:-1}
+ if(p.vx){p.face=p.vx>0?1:-1;p.walk+=Math.abs(p.vx)*.16}
  if(keys.jump&&p.on){p.vy=-6.5;p.on=false}
  p.vy+=.32;p.x+=p.vx;p.y+=p.vy;
- if(p.y>=205){p.y=205;p.vy=0;p.on=true}
+ if(p.y>=181){p.y=181;p.vy=0;p.on=true}
  p.x=Math.max(12,Math.min(448,p.x));
  if(keys.attack)attack(); if(keys.special)special();
  if(p.attack>0)p.attack--;if(p.special>0)p.special--;
@@ -91,7 +91,7 @@ function update(){
    if(e.hp<=0)return;
    e.hit=Math.max(0,e.hit-1);e.cd--;
    let d=p.x-e.x;
-   if(Math.abs(d)>28)e.x+=Math.sign(d)*(.55+round*.07);
+   if(Math.abs(d)>38){e.x+=Math.sign(d)*(.55+round*.07);e.walk+=.12;}
    else if(e.cd<=0){p.hp-=4+round;e.cd=55}
  });
  for(let i=enemies.length-1;i>=0;i--){
@@ -116,39 +116,70 @@ function draw(){
  x.fillStyle='#41414d';for(let i=0;i<480;i+=32)x.fillRect(i,222,20,3);
  // pipes
  x.fillStyle='#56566a';x.fillRect(25,80,130,9);x.fillRect(145,80,9,70);x.fillRect(330,55,110,9);x.fillRect(330,55,9,70);
- // detailed retro pixel-art Michelangelo sprite
+ // v0.1.1 larger 16-bit-style animated fighters
+ function turtlePart(px,py,w,h,col){x.fillStyle=col;x.fillRect(Math.round(px),Math.round(py),w,h)}
  function pixelTurtle(){
-   const X=Math.round(p.x),Y=Math.round(p.y);
-   x.fillStyle='#1b3d2a';x.fillRect(X+3,Y+13,16,15); // shadow shell
-   x.fillStyle='#397b48';x.fillRect(X+1,Y+10,20,17);
-   x.fillStyle='#5aa85c';x.fillRect(X+5,Y+2,12,12);
-   x.fillStyle='#efc59e';x.fillRect(X+6,Y+5,10,7);
-   x.fillStyle='#f07b35';x.fillRect(X+3,Y+6,17,5); // orange mask
-   x.fillStyle='#171717';x.fillRect(X+7,Y+7,2,2);x.fillRect(X+13,Y+7,2,2);
-   x.fillStyle='#264c31';x.fillRect(X+5,Y+13,12,3);
-   x.fillStyle='#c88b3e';x.fillRect(X+2,Y+28,7,3);x.fillRect(X+14,Y+28,7,3);
-   x.fillStyle='#6b3d20';x.fillRect(X+7,Y+17,8,8);
+   const X=Math.round(p.x),Y=Math.round(p.y),F=p.face;
+   const attacking=p.attack>0, special=p.special>0;
+   const af=attacking?Math.min(3,Math.floor((18-p.attack)/4.5)):0;
+   const wf=Math.floor(p.walk)%4;
+   const bob=(!attacking&&p.on&&Math.abs(p.vx)>.1)?[0,1,0,-1][wf]:0;
+   const legA=(!p.on)?-3:(!attacking&&Math.abs(p.vx)>.1?[0,4,0,-4][wf]:0);
+   const legB=(!p.on)?3:-legA;
+   // shell/body, now roughly twice the old visual size
+   turtlePart(X+7,Y+13+bob,24,29,'#244b31');
+   turtlePart(X+10,Y+15+bob,18,25,'#6b3d20');
+   turtlePart(X+9,Y+10+bob,22,28,'#397b48');
+   turtlePart(X+11,Y+17+bob,18,20,'#d3a33e');
+   turtlePart(X+14,Y+1+bob,16,15,'#5aa85c');
+   turtlePart(X+12,Y+5+bob,21,6,'#f07b35');
+   turtlePart(X+(F>0?25:15),Y+7+bob,3,3,'#111');
+   // mask tails
+   turtlePart(X+(F>0?8:30),Y+6+bob,7,3,'#f07b35');
+   turtlePart(X+(F>0?5:33),Y+9+bob,8,3,'#e66528');
+   // belt
+   turtlePart(X+10,Y+34+bob,20,4,'#5b351f'); turtlePart(X+18,Y+34+bob,5,4,'#d6a442');
+   // animated legs
+   turtlePart(X+10+legA,Y+38,8,13,'#4d9654'); turtlePart(X+23+legB,Y+38,8,13,'#4d9654');
+   turtlePart(X+7+legA,Y+49,12,5,'#2f713e'); turtlePart(X+22+legB,Y+49,12,5,'#2f713e');
+   turtlePart(X+9+legA,Y+42,10,4,'#f07b35'); turtlePart(X+22+legB,Y+42,10,4,'#f07b35');
+   // arms change through a real four-frame nunchaku swing
+   if(attacking){
+     const poses=[[-8,19,14,4,32,8],[-3,10,19,-8,35,-10],[18,7,31,2,43,10],[16,20,31,25,42,31]];
+     const a=poses[af], sx=F>0?X+a[0]+20:X+14-a[0];
+     turtlePart(F>0?X+a[0]+18:X+8-a[0],Y+a[1],12,6,'#4d9654');
+     x.strokeStyle='#d7b46a';x.lineWidth=2;x.beginPath();x.moveTo(sx,Y+a[1]+2);x.lineTo(F>0?X+a[4]:X+34-a[4]+X,Y+a[5]);x.stroke();
+     turtlePart(F>0?X+a[4]-2:X+34-a[4],Y+a[5]-6,5,14,'#a86b2b');
+   }else{
+     const arm=[0,2,0,-2][wf]||0;
+     turtlePart(X+(F>0?28:2),Y+20+arm,9,7,'#4d9654');
+     turtlePart(X+(F>0?3:27),Y+22-arm,9,7,'#4d9654');
+     turtlePart(X+(F>0?31:1),Y+23+arm,7,4,'#f07b35');
+   }
+   if(special){
+     const ang=(90-p.special)*.45;
+     x.strokeStyle='#ffb13b';x.lineWidth=3;
+     for(let i=0;i<2;i++){x.beginPath();x.arc(X+20,Y+24,25+i*7,ang+i,ang+2.2+i);x.stroke()}
+   }
  }
  pixelTurtle();
- // chunky animated nunchaku
- if(p.attack>0||p.special>0){
-   x.strokeStyle='#e8c77b';x.lineWidth=3;x.beginPath();
-   x.moveTo(p.x+11,p.y+19);x.lineTo(p.x+p.face*29,p.y+5);x.stroke();
-   x.fillStyle='#b87932';x.fillRect(p.x+p.face*27,p.y+1,6,14);
- }
  enemies.forEach(e=>{
    if(e.hp<=0)return;
-   const X=Math.round(e.x),Y=Math.round(e.y);
-   // Foot Clan soldier: layered retro sprite
-   x.fillStyle=e.hit?'#fff':'#20242b';x.fillRect(X+2,Y+8,16,19);
-   x.fillStyle='#343a44';x.fillRect(X+4,Y+4,13,10);
-   x.fillStyle='#d1a98b';x.fillRect(X+6,Y-3,10,8);
-   x.fillStyle='#17191d';x.fillRect(X+3,Y-5,15,6);
-   x.fillStyle='#8f2027';x.fillRect(X+4,Y+3,14,4); // mask
-   x.fillStyle='#eee';x.fillRect(X+7,Y+4,2,2);x.fillRect(X+13,Y+4,2,2);
-   x.fillStyle='#15171a';x.fillRect(X+4,Y+26,5,5);x.fillRect(X+13,Y+26,5,5);
-   x.fillStyle='#2a2a2a';x.fillRect(X,Y-12,20,2);
-   x.fillStyle='#7ee08a';x.fillRect(X,Y-12,20*(Math.max(0,e.hp)/e.max),2);
+   const X=Math.round(e.x),Y=Math.round(e.y),wf=Math.floor(e.walk)%4,b=[0,1,0,-1][wf];
+   const flash=e.hit?'#fff':'#30343d';
+   // larger, layered Foot soldier with walking legs/arms
+   turtlePart(X+6,Y+9+b,20,26,flash);
+   turtlePart(X+8,Y+3+b,17,13,e.hit?'#fff':'#3c414b');
+   turtlePart(X+9,Y-3+b,15,9,e.hit?'#fff':'#c49a7c');
+   turtlePart(X+6,Y-5+b,21,7,'#17191d');
+   turtlePart(X+7,Y+2+b,20,5,'#8f2027');
+   turtlePart(X+11,Y+3+b,3,2,'#eee');turtlePart(X+20,Y+3+b,3,2,'#eee');
+   const step=[-3,2,3,-2][wf];
+   turtlePart(X+7+step,Y+34,8,12,'#24272e');turtlePart(X+19-step,Y+34,8,12,'#24272e');
+   turtlePart(X+4+step,Y+44,12,5,'#111');turtlePart(X+18-step,Y+44,12,5,'#111');
+   turtlePart(X+1,Y+17-b,8,7,flash);turtlePart(X+25,Y+18+b,8,7,flash);
+   x.fillStyle='#2a2a2a';x.fillRect(X,Y-13,30,3);
+   x.fillStyle='#7ee08a';x.fillRect(X,Y-13,30*(Math.max(0,e.hp)/e.max),3);
  });
  pizza.forEach(q=>{x.fillStyle='#f5c542';x.beginPath();x.arc(q.x,q.y,8,0,7);x.fill();x.fillStyle='#d84a4a';x.fillRect(q.x-3,q.y-3,3,3);x.fillRect(q.x+2,q.y,3,3)});
  fx.forEach(f=>{x.fillStyle='#fff';x.font='10px monospace';x.fillText(f.t,f.x,f.y)});
