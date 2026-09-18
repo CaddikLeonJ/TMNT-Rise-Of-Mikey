@@ -1,0 +1,169 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mikey Sewer Brawl</title>
+<style>
+html,body{margin:0;background:#111;color:#fff;font-family:monospace;height:100%}
+body{display:flex;align-items:center;justify-content:center}
+#wrap{width:min(960px,100%);padding:10px;box-sizing:border-box}
+canvas{width:100%;image-rendering:pixelated;border:3px solid #555;background:#17151f;display:block}
+#buttons{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;justify-content:center}
+button{font:700 18px monospace;padding:12px 18px;background:#292929;color:white;border:2px solid #777;border-radius:8px;touch-action:none}
+#hint{text-align:center;font-size:14px;margin:8px 0;color:#bbb}
+</style>
+</head>
+<body>
+<div id="wrap">
+<canvas id="game" width="480" height="270"></canvas>
+<div id="hint">Keyboard: A/D move · W jump · J attack · K special · R restart</div>
+<div id="buttons">
+<button data-key="left">◀</button><button data-key="right">▶</button>
+<button data-key="jump">JUMP</button><button data-key="attack">ATTACK</button><button data-key="special">SPECIAL</button>
+</div>
+</div>
+<script>
+const c=document.getElementById('game'),x=c.getContext('2d'); x.imageSmoothingEnabled=false;
+const keys={left:false,right:false,jump:false,attack:false,special:false};
+let p,enemies,pizza,fx,round,score,gameOver,win,spawnTimer;
+function reset(){
+ p={x:80,y:205,w:22,h:30,vx:0,vy:0,hp:100,max:100,xp:0,level:1,face:1,attack:0,special:0,on:false};
+ enemies=[];pizza=[];fx=[];round=1;score=0;gameOver=false;win=false;spawnTimer=0;spawnWave();
+}
+function spawnWave(){
+ let n=round+1;
+ for(let i=0;i<n;i++) enemies.push({x:270+i*55,y:210,w:20,h:28,hp:25+round*8,max:25+round*8,hit:0,cd:Math.random()*60});
+}
+function bind(k,v){keys[k]=v}
+document.querySelectorAll('button').forEach(b=>{
+ let k=b.dataset.key;
+ b.addEventListener('pointerdown',e=>{e.preventDefault();bind(k,true)});
+ ['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,e=>{bind(k,false)}));
+});
+addEventListener('keydown',e=>{
+ if(e.code==='KeyA'||e.code==='ArrowLeft')keys.left=true;
+ if(e.code==='KeyD'||e.code==='ArrowRight')keys.right=true;
+ if(e.code==='KeyW'||e.code==='ArrowUp'||e.code==='Space')keys.jump=true;
+ if(e.code==='KeyJ')keys.attack=true;
+ if(e.code==='KeyK')keys.special=true;
+ if(e.code==='KeyR')reset();
+});
+addEventListener('keyup',e=>{
+ if(e.code==='KeyA'||e.code==='ArrowLeft')keys.left=false;
+ if(e.code==='KeyD'||e.code==='ArrowRight')keys.right=false;
+ if(e.code==='KeyW'||e.code==='ArrowUp'||e.code==='Space')keys.jump=false;
+ if(e.code==='KeyJ')keys.attack=false;
+ if(e.code==='KeyK')keys.special=false;
+});
+function rect(a){return {x:a.x,y:a.y,w:a.w,h:a.h}}
+function hit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
+function gainXP(n){
+ p.xp+=n;
+ let need=50+p.level*30;
+ if(p.xp>=need){p.xp-=need;p.level++;p.max+=15;p.hp=p.max;fx.push({x:p.x,y:p.y-10,t:'LEVEL UP!',life:60})}
+}
+function attack(){
+ if(p.attack>0)return;
+ p.attack=18;
+ let box={x:p.face>0?p.x+p.w:p.x-30,y:p.y+4,w:30,h:24};
+ enemies.forEach(e=>{
+   if(e.hp>0&&hit(box,e)){e.hp-=12+p.level*3;e.hit=8;gainXP(10);fx.push({x:e.x,y:e.y-8,t:'HIT',life:20})}
+ });
+}
+function special(){
+ if(p.special>0)return;
+ p.special=90;
+ enemies.forEach(e=>{if(e.hp>0&&Math.abs(e.x-p.x)<85){e.hp-=30+p.level*5;e.hit=10;gainXP(15)}})
+ fx.push({x:p.x-30,y:p.y-10,t:'NUNCHAKU SPIN!',life:35});
+}
+function update(){
+ if(gameOver||win)return;
+ p.vx=(keys.right?2.3:0)-(keys.left?2.3:0);
+ if(p.vx){p.face=p.vx>0?1:-1}
+ if(keys.jump&&p.on){p.vy=-6.5;p.on=false}
+ p.vy+=.32;p.x+=p.vx;p.y+=p.vy;
+ if(p.y>=205){p.y=205;p.vy=0;p.on=true}
+ p.x=Math.max(12,Math.min(448,p.x));
+ if(keys.attack)attack(); if(keys.special)special();
+ if(p.attack>0)p.attack--;if(p.special>0)p.special--;
+ enemies.forEach(e=>{
+   if(e.hp<=0)return;
+   e.hit=Math.max(0,e.hit-1);e.cd--;
+   let d=p.x-e.x;
+   if(Math.abs(d)>28)e.x+=Math.sign(d)*(.55+round*.07);
+   else if(e.cd<=0){p.hp-=4+round;e.cd=55}
+ });
+ for(let i=enemies.length-1;i>=0;i--){
+   let e=enemies[i];
+   if(e.hp<=0){pizza.push({x:e.x,y:205,life:500});score+=100;enemies.splice(i,1)}
+ }
+ pizza.forEach(q=>{q.life--;if(hit(p,{x:q.x-8,y:q.y-8,w:16,h:16})){p.hp=Math.min(p.max,p.hp+20);gainXP(15);q.life=0}});
+ pizza=pizza.filter(q=>q.life>0);
+ fx.forEach(f=>{f.life--;f.y-=.3});fx=fx.filter(f=>f.life>0);
+ if(enemies.length===0&&pizza.length===0){
+   spawnTimer++; if(spawnTimer>50){spawnTimer=0;
+     if(round<5){round++;spawnWave()}else{win=true}}
+ }
+ if(p.hp<=0)gameOver=true;
+}
+function draw(){
+ x.fillStyle='#111';x.fillRect(0,0,480,270);
+ // sewer background
+ x.fillStyle='#252532';x.fillRect(0,0,480,205);
+ x.fillStyle='#30303d'; for(let i=0;i<12;i++)x.fillRect(i*42,35+(i%2)*35,38,4);
+ x.fillStyle='#1b1b24';x.fillRect(0,205,480,65);
+ x.fillStyle='#41414d';for(let i=0;i<480;i+=32)x.fillRect(i,222,20,3);
+ // pipes
+ x.fillStyle='#56566a';x.fillRect(25,80,130,9);x.fillRect(145,80,9,70);x.fillRect(330,55,110,9);x.fillRect(330,55,9,70);
+ // detailed retro pixel-art Michelangelo sprite
+ function pixelTurtle(){
+   const X=Math.round(p.x),Y=Math.round(p.y);
+   x.fillStyle='#1b3d2a';x.fillRect(X+3,Y+13,16,15); // shadow shell
+   x.fillStyle='#397b48';x.fillRect(X+1,Y+10,20,17);
+   x.fillStyle='#5aa85c';x.fillRect(X+5,Y+2,12,12);
+   x.fillStyle='#efc59e';x.fillRect(X+6,Y+5,10,7);
+   x.fillStyle='#f07b35';x.fillRect(X+3,Y+6,17,5); // orange mask
+   x.fillStyle='#171717';x.fillRect(X+7,Y+7,2,2);x.fillRect(X+13,Y+7,2,2);
+   x.fillStyle='#264c31';x.fillRect(X+5,Y+13,12,3);
+   x.fillStyle='#c88b3e';x.fillRect(X+2,Y+28,7,3);x.fillRect(X+14,Y+28,7,3);
+   x.fillStyle='#6b3d20';x.fillRect(X+7,Y+17,8,8);
+ }
+ pixelTurtle();
+ // chunky animated nunchaku
+ if(p.attack>0||p.special>0){
+   x.strokeStyle='#e8c77b';x.lineWidth=3;x.beginPath();
+   x.moveTo(p.x+11,p.y+19);x.lineTo(p.x+p.face*29,p.y+5);x.stroke();
+   x.fillStyle='#b87932';x.fillRect(p.x+p.face*27,p.y+1,6,14);
+ }
+ enemies.forEach(e=>{
+   if(e.hp<=0)return;
+   const X=Math.round(e.x),Y=Math.round(e.y);
+   // Foot Clan soldier: layered retro sprite
+   x.fillStyle=e.hit?'#fff':'#20242b';x.fillRect(X+2,Y+8,16,19);
+   x.fillStyle='#343a44';x.fillRect(X+4,Y+4,13,10);
+   x.fillStyle='#d1a98b';x.fillRect(X+6,Y-3,10,8);
+   x.fillStyle='#17191d';x.fillRect(X+3,Y-5,15,6);
+   x.fillStyle='#8f2027';x.fillRect(X+4,Y+3,14,4); // mask
+   x.fillStyle='#eee';x.fillRect(X+7,Y+4,2,2);x.fillRect(X+13,Y+4,2,2);
+   x.fillStyle='#15171a';x.fillRect(X+4,Y+26,5,5);x.fillRect(X+13,Y+26,5,5);
+   x.fillStyle='#2a2a2a';x.fillRect(X,Y-12,20,2);
+   x.fillStyle='#7ee08a';x.fillRect(X,Y-12,20*(Math.max(0,e.hp)/e.max),2);
+ });
+ pizza.forEach(q=>{x.fillStyle='#f5c542';x.beginPath();x.arc(q.x,q.y,8,0,7);x.fill();x.fillStyle='#d84a4a';x.fillRect(q.x-3,q.y-3,3,3);x.fillRect(q.x+2,q.y,3,3)});
+ fx.forEach(f=>{x.fillStyle='#fff';x.font='10px monospace';x.fillText(f.t,f.x,f.y)});
+ // HUD
+ x.fillStyle='#fff';x.font='12px monospace';x.fillText('MICHELANGELO',10,16);
+ x.fillStyle='#612';x.fillRect(105,8,100,8);x.fillStyle='#e33';x.fillRect(105,8,100*Math.max(0,p.hp/p.max),8);
+ x.fillStyle='#fff';x.fillText('LV '+p.level+'  XP '+p.xp,220,16);x.fillText('ROUND '+round+'/5',390,16);
+ if(gameOver||win){
+  x.fillStyle='rgba(0,0,0,.75)';x.fillRect(0,0,480,270);x.textAlign='center';
+  x.font='22px monospace';x.fillStyle='#fff';x.fillText(win?'SHREDDER DEFEATED!':'MICKEY NEEDS PIZZA!',240,120);
+  x.font='14px monospace';x.fillText(win?'You cleared the prototype!':'Press R to restart',240,150);x.textAlign='left';
+ }
+}
+function loop(){update();draw();requestAnimationFrame(loop)}
+reset();loop();
+</script>
+</body>
+</html>
