@@ -2,16 +2,16 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Mikey Sewer Brawl</title>
 <style>
-html,body{margin:0;background:#111;color:#fff;font-family:monospace;height:100%}
-body{display:flex;align-items:center;justify-content:center}
-#wrap{width:min(960px,100%);padding:10px;box-sizing:border-box}
-canvas{width:100%;image-rendering:pixelated;border:3px solid #555;background:#17151f;display:block}
-#buttons{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;justify-content:center}
-button{font:700 18px monospace;padding:12px 18px;background:#292929;color:white;border:2px solid #777;border-radius:8px;touch-action:none}
-#hint{text-align:center;font-size:14px;margin:8px 0;color:#bbb}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111;color:#fff;font-family:monospace;overscroll-behavior:none;touch-action:none}
+body{display:flex;align-items:stretch;justify-content:center;position:fixed;inset:0}
+#wrap{width:100%;height:100dvh;padding:max(6px,env(safe-area-inset-top)) 8px max(6px,env(safe-area-inset-bottom));box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden}
+canvas{width:100%;height:auto;min-height:0;flex:1;object-fit:contain;image-rendering:pixelated;border:3px solid #555;background:#17151f;display:block;box-sizing:border-box;touch-action:none}
+#buttons{display:flex;gap:8px;flex-wrap:nowrap;margin-top:6px;justify-content:center;flex:0 0 auto;touch-action:none}
+button{font:700 clamp(13px,3.8vw,18px) monospace;padding:12px clamp(10px,3vw,18px);background:#292929;color:white;border:2px solid #777;border-radius:8px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#hint{display:none}
 </style>
 </head>
 <body>
@@ -25,6 +25,8 @@ button{font:700 18px monospace;padding:12px 18px;background:#292929;color:white;
 </div>
 <script>
 const c=document.getElementById('game'),x=c.getContext('2d'); x.imageSmoothingEnabled=false;
+document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+document.addEventListener('gesturestart',e=>e.preventDefault(),{passive:false});
 const keys={left:false,right:false,jump:false,attack:false,special:false};
 let p,enemies,pizza,fx,round,score,gameOver,win,spawnTimer;
 function reset(){
