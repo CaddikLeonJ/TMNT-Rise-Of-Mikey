@@ -80,7 +80,7 @@ function gainXP(n){
 function attack(){
  if(p.attack>0)return;
  p.attack=18;sfx('swing');
- let box={x:p.face>0?p.x+p.w:p.x-30,y:p.y+4,w:30,h:24};
+ let box={x:p.face>0?p.x+p.w-4:p.x-42,y:p.y-8,w:42,h:48};
  enemies.forEach(e=>{
    if(e.hp>0&&hit(box,e)){e.hp-=12+p.level*3;e.hit=8;gainXP(10);fx.push({x:e.x,y:e.y-8,t:'HIT',life:20});sfx('hit')}
  });
@@ -158,18 +158,41 @@ function draw(){
    turtlePart(X+10+legA,Y+38,8,13,'#4d9654'); turtlePart(X+23+legB,Y+38,8,13,'#4d9654');
    turtlePart(X+7+legA,Y+49,12,5,'#2f713e'); turtlePart(X+22+legB,Y+49,12,5,'#2f713e');
    turtlePart(X+9+legA,Y+42,10,4,'#f07b35'); turtlePart(X+22+legB,Y+42,10,4,'#f07b35');
-   // arms change through a real four-frame nunchaku swing
+   // Multi-frame nunchaku swing: shoulders, forearms, hands and both sticks rotate through the strike.
    if(attacking){
-     const poses=[[-8,19,14,4,32,8],[-3,10,19,-8,35,-10],[18,7,31,2,43,10],[16,20,31,25,42,31]];
-     const a=poses[af], sx=F>0?X+a[0]+20:X+14-a[0];
-     turtlePart(F>0?X+a[0]+18:X+8-a[0],Y+a[1],12,6,'#4d9654');
-     x.strokeStyle='#d7b46a';x.lineWidth=2;x.beginPath();x.moveTo(sx,Y+a[1]+2);x.lineTo(F>0?X+a[4]:X+34-a[4]+X,Y+a[5]);x.stroke();
-     turtlePart(F>0?X+a[4]-2:X+34-a[4],Y+a[5]-6,5,14,'#a86b2b');
+     const t=Math.max(0,Math.min(1,(18-p.attack)/17));
+     const swing=-2.45+t*4.9;
+     const cx=F>0?X+27:X+7, cy=Y+21+bob;
+     const upper=swing*.55, fore=swing;
+     const ex=cx+Math.cos(upper)*10*F, ey=cy+Math.sin(upper)*8;
+     const hx=ex+Math.cos(fore)*10*F, hy=ey+Math.sin(fore)*9;
+     // rear arm braces the body during the swing
+     turtlePart(F>0?X+5:X+27,Y+22+bob,8,6,'#4d9654');
+     x.strokeStyle='#4d9654';x.lineWidth=6;x.lineCap='square';
+     x.beginPath();x.moveTo(cx,cy);x.lineTo(ex,ey);x.lineTo(hx,hy);x.stroke();
+     turtlePart(hx-3,hy-3,6,6,'#4d9654');
+     // first nunchaku handle follows Mikey's hand
+     const h1x=hx+Math.cos(swing)*12*F, h1y=hy+Math.sin(swing)*12;
+     x.strokeStyle='#a86b2b';x.lineWidth=5;x.beginPath();x.moveTo(hx,hy);x.lineTo(h1x,h1y);x.stroke();
+     // chain lags behind the leading handle, giving a whipping arc
+     const chainAng=swing-(F>0?.85:-.85)*Math.sin(t*Math.PI);
+     const chx=h1x+Math.cos(chainAng)*9*F, chy=h1y+Math.sin(chainAng)*9;
+     x.strokeStyle='#d7d7c9';x.lineWidth=1.5;x.beginPath();x.moveTo(h1x,h1y);x.lineTo(chx,chy);x.stroke();
+     // free handle whips farther around the arc
+     const freeAng=swing-(F>0?1.35:-1.35)*Math.sin(t*Math.PI);
+     const h2x=chx+Math.cos(freeAng)*14*F, h2y=chy+Math.sin(freeAng)*14;
+     x.strokeStyle='#a86b2b';x.lineWidth=5;x.beginPath();x.moveTo(chx,chy);x.lineTo(h2x,h2y);x.stroke();
+     // orange motion streak only during the fastest middle part of the strike
+     if(t>.22&&t<.82){x.strokeStyle='rgba(255,177,59,.7)';x.lineWidth=2;x.beginPath();x.arc(cx,cy,31,F>0?swing-1:swing+1,F>0?swing+.35:swing-.35,F<0);x.stroke()}
+     x.lineCap='butt';
    }else{
      const arm=[0,2,0,-2][wf]||0;
      turtlePart(X+(F>0?28:2),Y+20+arm,9,7,'#4d9654');
      turtlePart(X+(F>0?3:27),Y+22-arm,9,7,'#4d9654');
      turtlePart(X+(F>0?31:1),Y+23+arm,7,4,'#f07b35');
+     // visible holstered nunchaku handles at the belt when not attacking
+     turtlePart(X+(F>0?27:5),Y+32,4,12,'#a86b2b');
+     turtlePart(X+(F>0?31:1),Y+34,4,12,'#a86b2b');
    }
    if(special){
      const ang=(90-p.special)*.45;
