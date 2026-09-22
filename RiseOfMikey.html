@@ -29,14 +29,17 @@ document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 document.addEventListener('gesturestart',e=>e.preventDefault(),{passive:false});
 const keys={left:false,right:false,jump:false,attack:false,special:false};
 let p,enemies,pizza,fx,round,score,gameOver,win,spawnTimer,boss=null,bossSpawned=false;
-let audioCtx=null,musicTimer=null,musicStep=0;
+let audioCtx=null;
 function audio(){if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx}
 function tone(freq,dur=.08,type='square',vol=.05,delay=0){const a=audio(),o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(vol,a.currentTime+delay);g.gain.exponentialRampToValueAtTime(.0001,a.currentTime+delay+dur);o.connect(g);g.connect(a.destination);o.start(a.currentTime+delay);o.stop(a.currentTime+delay+dur)}
 function sfx(n){if(n==='jump'){tone(330,.06);tone(440,.09,'square',.04,.05)}else if(n==='swing'){tone(180,.05,'sawtooth',.035);tone(120,.08,'square',.025,.04)}else if(n==='hit'){tone(85,.09,'square',.07);tone(55,.12,'sawtooth',.04)}else if(n==='hurt'){tone(120,.13,'sawtooth',.06)}else if(n==='pizza'){tone(523,.06);tone(659,.06,'square',.04,.06);tone(784,.1,'square',.04,.12)}else if(n==='level'){[523,659,784,1047].forEach((f,i)=>tone(f,.1,'square',.045,i*.08))}else if(n==='boss'){[110,98,82,73].forEach((f,i)=>tone(f,.22,'sawtooth',.05,i*.12))}else if(n==='ko'){tone(100,.1);tone(70,.18,'sawtooth',.05,.08)}}
-// Original chiptune-style sewer battle music (not the copyrighted TMNT melody).
-const musicNotes=[165,196,220,247,220,196,165,147,165,196,247,294,247,220,196,147];
-function startMusic(){audio();if(musicTimer)return;musicTimer=setInterval(()=>{tone(musicNotes[musicStep++%musicNotes.length],.12,'square',.018);if(musicStep%4===0)tone(82,.08,'triangle',.025)},170)}
-document.addEventListener('pointerdown',startMusic,{once:true});
+// User-supplied arcade track: loop continuously after the first interaction.
+const bgMusic=new Audio('https://raw.githubusercontent.com/CaddikLeonJ/TMNT-Rise-Of-Mikey/main/TMNT%208%20Arcade%20Game.mp3');
+bgMusic.loop=true;bgMusic.preload='auto';bgMusic.volume=.42;
+let musicStarted=false;
+function startMusic(){audio();if(musicStarted)return;musicStarted=true;bgMusic.play().catch(()=>{musicStarted=false})}
+document.addEventListener('pointerdown',startMusic,{once:false});
+document.addEventListener('keydown',startMusic,{once:false});
 function reset(){
  p={x:80,y:181,w:34,h:54,vx:0,vy:0,hp:100,max:100,xp:0,level:1,face:1,attack:0,special:0,on:false,walk:0};
  enemies=[];pizza=[];fx=[];round=1;score=0;gameOver=false;win=false;spawnTimer=0;boss=null;bossSpawned=false;spawnWave();
