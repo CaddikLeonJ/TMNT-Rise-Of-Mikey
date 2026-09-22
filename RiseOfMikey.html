@@ -28,15 +28,24 @@ const c=document.getElementById('game'),x=c.getContext('2d'); x.imageSmoothingEn
 document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 document.addEventListener('gesturestart',e=>e.preventDefault(),{passive:false});
 const keys={left:false,right:false,jump:false,attack:false,special:false};
-let p,enemies,pizza,fx,round,score,gameOver,win,spawnTimer;
+let p,enemies,pizza,fx,round,score,gameOver,win,spawnTimer,boss=null,bossSpawned=false;
+let audioCtx=null,musicTimer=null,musicStep=0;
+function audio(){if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx}
+function tone(freq,dur=.08,type='square',vol=.05,delay=0){const a=audio(),o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(vol,a.currentTime+delay);g.gain.exponentialRampToValueAtTime(.0001,a.currentTime+delay+dur);o.connect(g);g.connect(a.destination);o.start(a.currentTime+delay);o.stop(a.currentTime+delay+dur)}
+function sfx(n){if(n==='jump'){tone(330,.06);tone(440,.09,'square',.04,.05)}else if(n==='swing'){tone(180,.05,'sawtooth',.035);tone(120,.08,'square',.025,.04)}else if(n==='hit'){tone(85,.09,'square',.07);tone(55,.12,'sawtooth',.04)}else if(n==='hurt'){tone(120,.13,'sawtooth',.06)}else if(n==='pizza'){tone(523,.06);tone(659,.06,'square',.04,.06);tone(784,.1,'square',.04,.12)}else if(n==='level'){[523,659,784,1047].forEach((f,i)=>tone(f,.1,'square',.045,i*.08))}else if(n==='boss'){[110,98,82,73].forEach((f,i)=>tone(f,.22,'sawtooth',.05,i*.12))}else if(n==='ko'){tone(100,.1);tone(70,.18,'sawtooth',.05,.08)}}
+// Original chiptune-style sewer battle music (not the copyrighted TMNT melody).
+const musicNotes=[165,196,220,247,220,196,165,147,165,196,247,294,247,220,196,147];
+function startMusic(){audio();if(musicTimer)return;musicTimer=setInterval(()=>{tone(musicNotes[musicStep++%musicNotes.length],.12,'square',.018);if(musicStep%4===0)tone(82,.08,'triangle',.025)},170)}
+document.addEventListener('pointerdown',startMusic,{once:true});
 function reset(){
  p={x:80,y:181,w:34,h:54,vx:0,vy:0,hp:100,max:100,xp:0,level:1,face:1,attack:0,special:0,on:false,walk:0};
- enemies=[];pizza=[];fx=[];round=1;score=0;gameOver=false;win=false;spawnTimer=0;spawnWave();
+ enemies=[];pizza=[];fx=[];round=1;score=0;gameOver=false;win=false;spawnTimer=0;boss=null;bossSpawned=false;spawnWave();
 }
 function spawnWave(){
  let n=round+1;
  for(let i=0;i<n;i++) enemies.push({x:270+i*55,y:187,w:30,h:48,hp:25+round*8,max:25+round*8,hit:0,cd:Math.random()*60,walk:Math.random()*20});
 }
+function spawnBoss(){bossSpawned=true;const regular=25+5*8;boss={x:390,y:169,w:42,h:66,hp:regular*3,max:regular*3,hit:0,cd:45,walk:0};fx.push({x:190,y:80,t:'SHREDDER!',life:90});sfx('boss')}
 function bind(k,v){keys[k]=v}
 document.querySelectorAll('button').forEach(b=>{
  let k=b.dataset.key;
@@ -63,27 +72,28 @@ function hit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
 function gainXP(n){
  p.xp+=n;
  let need=50+p.level*30;
- if(p.xp>=need){p.xp-=need;p.level++;p.max+=15;p.hp=p.max;fx.push({x:p.x,y:p.y-10,t:'LEVEL UP!',life:60})}
+ if(p.xp>=need){p.xp-=need;p.level++;p.max+=15;p.hp=p.max;fx.push({x:p.x,y:p.y-10,t:'LEVEL UP!',life:60});sfx('level')}
 }
 function attack(){
  if(p.attack>0)return;
- p.attack=18;
+ p.attack=18;sfx('swing');
  let box={x:p.face>0?p.x+p.w:p.x-30,y:p.y+4,w:30,h:24};
  enemies.forEach(e=>{
-   if(e.hp>0&&hit(box,e)){e.hp-=12+p.level*3;e.hit=8;gainXP(10);fx.push({x:e.x,y:e.y-8,t:'HIT',life:20})}
+   if(e.hp>0&&hit(box,e)){e.hp-=12+p.level*3;e.hit=8;gainXP(10);fx.push({x:e.x,y:e.y-8,t:'HIT',life:20});sfx('hit')}
  });
+ if(boss&&boss.hp>0&&hit(box,boss)){boss.hp-=12+p.level*3;boss.hit=8;fx.push({x:boss.x,y:boss.y-8,t:'HIT',life:20});sfx('hit')}
 }
 function special(){
  if(p.special>0)return;
- p.special=90;
- enemies.forEach(e=>{if(e.hp>0&&Math.abs(e.x-p.x)<85){e.hp-=30+p.level*5;e.hit=10;gainXP(15)}})
+ p.special=90;sfx('swing');
+ enemies.forEach(e=>{if(e.hp>0&&Math.abs(e.x-p.x)<85){e.hp-=30+p.level*5;e.hit=10;gainXP(15);sfx('hit')}});if(boss&&boss.hp>0&&Math.abs(boss.x-p.x)<95){boss.hp-=30+p.level*5;boss.hit=10;sfx('hit')}
  fx.push({x:p.x-30,y:p.y-10,t:'NUNCHAKU SPIN!',life:35});
 }
 function update(){
  if(gameOver||win)return;
  p.vx=(keys.right?2.3:0)-(keys.left?2.3:0);
  if(p.vx){p.face=p.vx>0?1:-1;p.walk+=Math.abs(p.vx)*.16}
- if(keys.jump&&p.on){p.vy=-6.5;p.on=false}
+ if(keys.jump&&p.on){p.vy=-6.5;p.on=false;sfx('jump')}
  p.vy+=.32;p.x+=p.vx;p.y+=p.vy;
  if(p.y>=181){p.y=181;p.vy=0;p.on=true}
  p.x=Math.max(12,Math.min(448,p.x));
@@ -94,19 +104,19 @@ function update(){
    e.hit=Math.max(0,e.hit-1);e.cd--;
    let d=p.x-e.x;
    if(Math.abs(d)>38){e.x+=Math.sign(d)*(.55+round*.07);e.walk+=.12;}
-   else if(e.cd<=0){p.hp-=4+round;e.cd=55}
+   else if(e.cd<=0){p.hp-=4+round;e.cd=55;sfx('hurt')}
  });
  for(let i=enemies.length-1;i>=0;i--){
    let e=enemies[i];
-   if(e.hp<=0){pizza.push({x:e.x,y:205,life:500});score+=100;enemies.splice(i,1)}
+   if(e.hp<=0){pizza.push({x:e.x,y:205,life:500});score+=100;sfx('ko');enemies.splice(i,1)}
  }
- pizza.forEach(q=>{q.life--;if(hit(p,{x:q.x-8,y:q.y-8,w:16,h:16})){p.hp=Math.min(p.max,p.hp+20);gainXP(15);q.life=0}});
+ pizza.forEach(q=>{q.life--;if(hit(p,{x:q.x-8,y:q.y-8,w:16,h:16})){p.hp=Math.min(p.max,p.hp+20);gainXP(15);q.life=0;sfx('pizza')}});
  pizza=pizza.filter(q=>q.life>0);
  fx.forEach(f=>{f.life--;f.y-=.3});fx=fx.filter(f=>f.life>0);
- if(enemies.length===0&&pizza.length===0){
-   spawnTimer++; if(spawnTimer>50){spawnTimer=0;
-     if(round<5){round++;spawnWave()}else{win=true}}
- }
+ if(round===5&&enemies.length===0&&!bossSpawned){spawnTimer++;if(spawnTimer>50){spawnTimer=0;spawnBoss()}}
+ if(boss&&boss.hp>0){boss.hit=Math.max(0,boss.hit-1);boss.cd--;let d=p.x-boss.x;if(Math.abs(d)>45){boss.x+=Math.sign(d)*.85;boss.walk+=.14}else if(boss.cd<=0){p.hp-=10;boss.cd=42;sfx('hurt')}}
+ if(boss&&boss.hp<=0){score+=1000;sfx('ko');boss=null;win=true}
+ if(enemies.length===0&&pizza.length===0&&round<5){spawnTimer++;if(spawnTimer>50){spawnTimer=0;round++;spawnWave()}}
  if(p.hp<=0)gameOver=true;
 }
 function draw(){
@@ -183,7 +193,20 @@ function draw(){
    x.fillStyle='#2a2a2a';x.fillRect(X,Y-13,30,3);
    x.fillStyle='#7ee08a';x.fillRect(X,Y-13,30*(Math.max(0,e.hp)/e.max),3);
  });
- pizza.forEach(q=>{x.fillStyle='#f5c542';x.beginPath();x.arc(q.x,q.y,8,0,7);x.fill();x.fillStyle='#d84a4a';x.fillRect(q.x-3,q.y-3,3,3);x.fillRect(q.x+2,q.y,3,3)});
+ if(boss&&boss.hp>0){
+   const X=Math.round(boss.x),Y=Math.round(boss.y),b=Math.floor(boss.walk)%2;
+   // Shredder: larger armored final-boss sprite
+   turtlePart(X+8,Y+12,27,38,boss.hit?'#fff':'#5b506f');turtlePart(X+11,Y+19,21,25,'#25232d');
+   turtlePart(X+10,Y+2,24,14,'#b9bcc6');turtlePart(X+8,Y,28,5,'#d8dae0');
+   turtlePart(X+13,Y+7,18,4,'#4b244f');turtlePart(X+15,Y+11,4,2,'#f44');turtlePart(X+26,Y+11,4,2,'#f44');
+   turtlePart(X+2,Y+17+b*2,10,8,'#8d8f99');turtlePart(X+34,Y+17-b*2,10,8,'#8d8f99');
+   turtlePart(X+10+(b?3:-2),Y+48,9,16,'#777b86');turtlePart(X+26+(b?-3:2),Y+48,9,16,'#777b86');
+   // shoulder/forearm blades
+   x.strokeStyle='#e4e5e9';x.lineWidth=2;for(let i=0;i<3;i++){x.beginPath();x.moveTo(X+4,Y+18+i*4);x.lineTo(X-5-i*2,Y+12+i*3);x.stroke();x.beginPath();x.moveTo(X+40,Y+18+i*4);x.lineTo(X+49+i*2,Y+12+i*3);x.stroke()}
+   // Boss health bar only exists while Shredder is on screen
+   x.fillStyle='rgba(0,0,0,.7)';x.fillRect(118,30,244,24);x.fillStyle='#fff';x.font='11px monospace';x.textAlign='center';x.fillText('SHREDDER',240,40);x.fillStyle='#481016';x.fillRect(135,44,210,7);x.fillStyle='#e33';x.fillRect(135,44,210*Math.max(0,boss.hp/boss.max),7);x.textAlign='left';
+ }
+  pizza.forEach(q=>{x.fillStyle='#f5c542';x.beginPath();x.arc(q.x,q.y,8,0,7);x.fill();x.fillStyle='#d84a4a';x.fillRect(q.x-3,q.y-3,3,3);x.fillRect(q.x+2,q.y,3,3)});
  fx.forEach(f=>{x.fillStyle='#fff';x.font='10px monospace';x.fillText(f.t,f.x,f.y)});
  // HUD
  x.fillStyle='#fff';x.font='12px monospace';x.fillText('MICHELANGELO',10,16);
