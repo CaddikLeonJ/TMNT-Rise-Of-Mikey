@@ -48,7 +48,7 @@ function spawnWave(){
  let n=round+1;
  for(let i=0;i<n;i++) enemies.push({x:270+i*55,y:187,w:30,h:48,hp:25+round*8,max:25+round*8,hit:0,cd:Math.random()*60,walk:Math.random()*20});
 }
-function spawnBoss(){bossSpawned=true;const regular=25+5*8;boss={x:390,y:169,w:42,h:66,hp:regular*3,max:regular*3,hit:0,cd:45,walk:0};fx.push({x:190,y:80,t:'SHREDDER!',life:90});sfx('boss')}
+function spawnBoss(){bossSpawned=true;const regular=25+5*8;boss={x:390,y:169,w:42,h:66,hp:regular*6,max:regular*6,hit:0,cd:45,walk:0};fx.push({x:190,y:80,t:'SHREDDER!',life:90});sfx('boss')}
 function bind(k,v){keys[k]=v}
 document.querySelectorAll('button').forEach(b=>{
  let k=b.dataset.key;
@@ -117,7 +117,7 @@ function update(){
  pizza=pizza.filter(q=>q.life>0);
  fx.forEach(f=>{f.life--;f.y-=.3});fx=fx.filter(f=>f.life>0);
  if(round===5&&enemies.length===0&&!bossSpawned){spawnTimer++;if(spawnTimer>50){spawnTimer=0;spawnBoss()}}
- if(boss&&boss.hp>0){boss.hit=Math.max(0,boss.hit-1);boss.cd--;let d=p.x-boss.x;if(Math.abs(d)>45){boss.x+=Math.sign(d)*.85;boss.walk+=.14}else if(boss.cd<=0){p.hp-=10;boss.cd=42;sfx('hurt')}}
+ if(boss&&boss.hp>0){boss.hit=Math.max(0,boss.hit-1);boss.cd--;let d=p.x-boss.x;if(Math.abs(d)>45){boss.x+=Math.sign(d)*.85;boss.walk+=.14}else if(boss.cd<=0){p.hp-=18;boss.cd=42;sfx('hurt')}}
  if(boss&&boss.hp<=0){score+=1000;sfx('ko');boss=null;win=true}
  if(enemies.length===0&&pizza.length===0&&round<5){spawnTimer++;if(spawnTimer>50){spawnTimer=0;round++;spawnWave()}}
  if(p.hp<=0)gameOver=true;
